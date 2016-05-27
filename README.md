@@ -6,7 +6,7 @@ Example usage
 ```
 from steam-totp import SteamTOTP
 
-code = SteamTOTP(shared=accountDetails['identitySecret']).generateLoginToken()
+code = SteamTOTP(identity=accountDetails['identitySecret']).generateLoginToken()
 ```
 
 ```
