@@ -1,25 +1,20 @@
+
 '''
 The MIT License (MIT)
-
-Copyright (c) 2016 Philipp Joos
-
+Copyright (c) 2015 Michael Peters
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
+of this software and associated documentation files (the "Software"), to
+deal in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 '''
 
 '''
@@ -50,10 +45,10 @@ class SteamTOTP:
 
     def generateLoginToken(self, secret=False):
         if not secret:
-            if 'sharedSecret' in self.secrets:
-                secret = self.secrets['sharedSecret']
+            if 'identitySecret' in self.secrets:
+                secret = self.secrets['identitySecret']
             else:
-                print 'Error in SteamTOTP.generateLoginToken() - Could not generate login token without sharedSecret'
+                print 'Error in SteamTOTP.generateLoginToken() - Could notgenerate login token without identitySecret'
                 return False
         try:
             STEAM_CHARS = ['2', '3', '4', '5', '6', '7', '8', '9', 'B','C', 'D', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'T', 'V', 'W','X', 'Y']
@@ -79,23 +74,28 @@ class SteamTOTP:
 
     def generateConfirmationToken(self, time, tag, secret = False):
         if not secret:
-            if 'identitySecret' in self.secrets:
-                secret = self.secrets['identitySecret']
+            if 'sharedSecret' in self.secrets:
+                secret = self.secrets['sharedSecret']
             else:
-                print 'Error in SteamTOTP.generateConfirmationToken() - Could not generate confirmation token without identitySecret'
+                print 'Error in SteamTOTP.generateConfirmationToken() - Could not generate confirmation token without sharedSecret'
                 return False
         v = long_to_bytes(long(time))
         if tag:
             v += tag
+
         h = hmac.new(base64.b64decode(secret), v, hashlib.sha1)
         return h.digest().encode('base64')
 
     def long_to_bytes(self, val, endianness='big'):
         width = 64
+
         fmt = '%%0%dx' % (width // 4)
+
         s = unhexlify(fmt % val)
+
         if (endianness == 'little'):
             s = s[::-1]
+
         return s
 
     def getServerTime(self):
