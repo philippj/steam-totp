@@ -4,13 +4,13 @@ Generates steam login/confirmation tokens, based on sharedSecret and identitySec
 
 Example usage
 ```
-from steamtotp import SteamTOTP
+from totp import SteamTOTP
 
 code = SteamTOTP(identity=accountDetails['identitySecret']).generateLoginToken()
 ```
 
 ```
-from steamtotp import SteamTOTP
+from totp import SteamTOTP
 
 totpGen = SteamTOTP()
 
