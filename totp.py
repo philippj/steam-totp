@@ -1,4 +1,5 @@
-
+#!/usr/bin/python
+# -*- coding: utf-8 -*
 '''
 The MIT License (MIT)
 Copyright (c) 2015 Michael Peters
@@ -20,7 +21,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
 '''
 Base code by https://github.com/Elipzer/ ( https://github.com/Elipzer/SteamAuthenticatorPython/ )
 '''
-
+import re
 import hmac
 import hashlib
 import struct
@@ -33,9 +34,12 @@ import json
 from datetime import datetime
 from binascii import unhexlify
 
+
 class SteamTOTP:
-    def __init__(self, shared=False, identity=False):
+    def __init__(self, shared=False, identity=False, secret=False, deviceID=False, steamID64=False):
         self.secrets = { }
+        self.steamID = False
+        self.session = False
 
         if shared:
             self.secrets['sharedSecret'] = shared
@@ -43,12 +47,36 @@ class SteamTOTP:
         if identity:
             self.secrets['identitySecret'] = identity
 
+        if secret:
+            self.secrets['secret'] = secret
+
+        if deviceID:
+            self.secrets['deviceID'] = deviceID
+
+        if steamID64:
+            self.steamID = steamID64
+
+    def setSharedSecret(self, shared):
+        self.secrets['sharedSecret'] = shared
+
+    def setIdentitySecret(self, identity):
+        self.secrets['identitySecret'] = identity
+
+    def setSecret(self, secret):
+        self.secrets['secret'] = secret
+
+    def setDeviceID(self, deviceID):
+        self.secrets['deviceID'] = deviceID
+
+    def setSteamID(self, steamID64):
+        self.steamID = steamID64
+
     def generateLoginToken(self, secret=False):
         if not secret:
-            if 'identitySecret' in self.secrets:
-                secret = self.secrets['identitySecret']
+            if 'secret' in self.secrets:
+                secret = self.secrets['secret']
             else:
-                print 'Error in SteamTOTP.generateLoginToken() - Could notgenerate login token without identitySecret'
+                print 'Error in SteamTOTP.generateLoginToken() - Could not generate login token without secret'
                 return False
         try:
             STEAM_CHARS = ['2', '3', '4', '5', '6', '7', '8', '9', 'B','C', 'D', 'F', 'G', 'H', 'J', 'K', 'M', 'N', 'P', 'Q', 'R', 'T', 'V', 'W','X', 'Y']
@@ -72,20 +100,27 @@ class SteamTOTP:
             print 'Exception in SteamTOTP.generateLoginToken() - %s' % e
             return False
 
-    def generateConfirmationToken(self, time, tag, secret = False):
+    def generateConfirmationToken(self, tag, time=False, secret = False, includeTime=False):
         if not secret:
-            if 'sharedSecret' in self.secrets:
-                secret = self.secrets['sharedSecret']
+            if 'identitySecret' in self.secrets:
+                secret = self.secrets['identitySecret']
             else:
-                print 'Error in SteamTOTP.generateConfirmationToken() - Could not generate confirmation token without sharedSecret'
+                print 'Error in SteamTOTP.generateConfirmationToken() - Could not generate confirmation token without identitySecret'
                 return False
-        v = long_to_bytes(long(time))
+                
+        if not time:
+            time = self.getServerTime()
+
+        v = self.long_to_bytes(long(time))
         if tag:
             v += tag
 
         h = hmac.new(base64.b64decode(secret), v, hashlib.sha1)
-        return h.digest().encode('base64')
-
+        if not includeTime:
+            return h.digest().encode('base64')
+        else:
+            return [h.digest().encode('base64'), time]
+    
     def long_to_bytes(self, val, endianness='big'):
         width = 64
 
@@ -107,3 +142,35 @@ class SteamTOTP:
         resp_text = resp.read()
         json_resp = json.loads(resp_text)
         return json_resp['response']['server_time']
+
+    def getDeviceID(self, steamID=False):
+        if 'deviceID' not in self.secrets:
+            return self.generateDeviceID(steamID)
+        else:
+            print 'this.'
+            return self.secrets['deviceID']
+
+    def generateDeviceID(self, steamID=False, prefix='android'):
+        if not steamID:
+            if self.steamID:
+                steamID = self.steamID
+            else:
+                print 'Error in SteamTOTP.generateDeviceID() - Could not generate device id without steamID'
+                return False
+
+        hashed = hashlib.sha1()
+        hashed.update(str(steamID))
+        digest = hashed.hexdigest()[:32]
+        deviceID = u''
+        deviceID += prefix
+        deviceID += ':'
+        deviceID += digest[0:8]
+        deviceID += '-'
+        deviceID += digest[9:13]
+        deviceID += '-'
+        deviceID += digest[14:18]
+        deviceID += '-'
+        deviceID += digest[19:23]
+        deviceID += '-'
+        deviceID += digest[24:]
+        return deviceID
