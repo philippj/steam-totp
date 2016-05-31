@@ -1,19 +1,28 @@
 # steam-totp
 
-Generates steam login/confirmation tokens, based on sharedSecret and identitySecret
 
-Example usage
+
+## Main features
+- Generating login tokens
+- Generating confirmation tokens
+- Generating device ids
+
+## Requirements
+See requirements.txt
+ 
+
+## Examples
 ```
 from totp import SteamTOTP
 
-code = SteamTOTP(identity=accountDetails['identitySecret']).generateLoginToken()
+code = SteamTOTP(secret=accountDetails['secret']).generateLoginToken()
 ```
 
 ```
 from totp import SteamTOTP
 
-totpGen = SteamTOTP()
+totp = SteamTOTP()
 
-code = totpGen.generateLoginToken(accountDetails['identitySecret'])
-
+code = totp.generateLoginToken(accountDetails['secret'])
+confToken = totp.generateConfirmationToken('conf', identity_secret = accountDetails['identitySecret'])
 ```
