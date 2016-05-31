@@ -43,32 +43,53 @@ SYNC_URL = 'https://api.steampowered.com:443/ITwoFactorService/QueryTime/v0001'
 
 
 class SteamTOTP:
-    def __init__(self, shared_secret=False, identity_secret=False):
-        self.secrets = {}
+    def __init__(self, secret=False, identity_secret=False, deviceID=False, steamID=False):
+        self.secrets    = {}
+        self.deviceID   = False
+        self.steamID    = False
 
-        if shared_secret:
-            self.secrets['sharedSecret'] = shared_secret
+        if secret:
+            self.secrets['secret']          = secret
 
         if identity_secret:
-            self.secrets['identitySecret'] = identity_secret
+            self.secrets['identitySecret']  = identity_secret
+            
+        if deviceID:
+            self.deviceID                   = deviceID
 
-    def generateLoginToken(self, shared_secret=None):
-        if not shared_secret and 'sharedSecret' not in self.secrets.keys():
-            raise Exception(
-                'Could not generate login token without sharedSecret'
+        if steamID:
+            self.steamID                    = steamID64
+            
+            
+    @property
+    def serverTime(self):
+        try:
+            resp = requests.post(SYNC_URL)
+        except Exception, e:
+            raise ServerTimeError('Could not retrieve steam server time - %s' % e)
+        return resp.json().get('response').get('server_time')
+
+    def generateLoginToken(self, secret=None):
+        if not secret and 'secret' not in self.secrets.keys():
+            raise SecretMissing(
+                'Could not generate login token without secret'
             )
 
-        shared_secret = shared_secret or self.secrets.get('sharedSecret')
+        secret = secret or self.secrets.get('secret')
 
         toLong = lambda x: long(x.encode('hex'), 16)
         local = lambda: long(
             round(time.mktime(time.localtime(time.time())) * 1000)
         )
-        timediff = local() - (long(self.getServerTime()) * 1000)
+        timediff = local() - (long(self.serverTime) * 1000)
         codeinterval = lambda: long((local() + timediff) / 30000)
 
         v = self.long_to_bytes(codeinterval())
-        h = hmac.new(base64.b64decode(shared_secret), v, hashlib.sha1)
+        try:
+            h = hmac.new(base64.b64decode(secret), v, hashlib.sha1)
+        except TypeError, e:
+            raise PaddingError('%s - Please check your secret' % str(e))
+
         digest = h.digest()
 
         start = toLong(digest[19]) & 0x0f
@@ -85,19 +106,24 @@ class SteamTOTP:
 
         return code
 
-    def generateConfirmationToken(self, time, tag, identity_secret=None):
+    def generateConfirmationToken(self, tag, time=None, identity_secret=None):
         if not identity_secret and 'identitySecret' not in self.secrets.keys():
-            raise Exception(
+            raise IdentitySecretMissing(
                 'Could not generate confirmation token without identitySecret'
             )
 
+        time = time or self.serverTime
+    
         identity_secret = identity_secret or self.secrets.get('identitySecret')
         v = self.long_to_bytes(long(time))
 
         if tag:
             v += tag
 
-        h = hmac.new(base64.b64decode(identity_secret), v, hashlib.sha1)
+        try:
+            h = hmac.new(base64.b64decode(identity_secret), v, hashlib.sha1)
+        except TypeError, e:
+            raise PaddingError('%s - Please check your identitySecret' % str(e))
 
         return h.digest().encode('base64')
 
@@ -113,23 +139,15 @@ class SteamTOTP:
 
         return s
 
-    def getServerTime(self):
-        resp = requests.post(SYNC_URL)
-
-        return resp.json().get('response').get('server_time')
-
     def getDeviceID(self, steamID=False):
-        if 'deviceID' not in self.secrets:
-            return self.generateDeviceID(steamID)
-        else:
-            return self.secrets['deviceID']
+        return self.deviceID or self.generateDeviceID()
 
     def generateDeviceID(self, steamID=False, prefix='android'):
         if not steamID:
             if self.steamID:
                 steamID = self.steamID
             else:
-                raise Exception('Could not generate device id without steamID')
+                raise SteamIDMissing('Could not generate device id without steamID')
 
         hashed = hashlib.sha1()
         hashed.update(str(steamID))
@@ -149,3 +167,21 @@ class SteamTOTP:
         deviceID += digest[24:]
 
         return deviceID
+
+class SteamTOTPException(Exception):
+    pass
+
+class SteamIDMissing(SteamTOTPException):
+    pass
+
+class IdentitySecretMissing(SteamTOTPException):
+    pass
+
+class SecretMissing(SteamTOTPException):
+    pass
+
+class PaddingError(SteamTOTPException):
+    pass
+
+class ServerTimeError(SteamTOTPException):
+    pass
