@@ -1,7 +1,8 @@
-
+#!/usr/bin/python
+# -*- coding: utf-8 -*
 '''
 The MIT License (MIT)
-Copyright (c) 2015 Michael Peters
+Copyright (c) 2016 Philipp Joos
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to
 deal in the Software without restriction, including without limitation
@@ -28,7 +29,6 @@ import hmac
 import time
 import base64
 import hashlib
-# import string
 import requests
 
 from binascii import unhexlify
@@ -117,3 +117,35 @@ class SteamTOTP:
         resp = requests.post(SYNC_URL)
 
         return resp.json().get('response').get('server_time')
+
+    def getDeviceID(self, steamID=False):
+        if 'deviceID' not in self.secrets:
+            return self.generateDeviceID(steamID)
+        else:
+            return self.secrets['deviceID']
+
+    def generateDeviceID(self, steamID=False, prefix='android'):
+        if not steamID:
+            if self.steamID:
+                steamID = self.steamID
+            else:
+                raise Exception('Could not generate device id without steamID')
+
+        hashed = hashlib.sha1()
+        hashed.update(str(steamID))
+        digest = hashed.hexdigest()[:32]
+
+        deviceID = u''
+        deviceID += prefix
+        deviceID += ':'
+        deviceID += digest[0:8]
+        deviceID += '-'
+        deviceID += digest[9:13]
+        deviceID += '-'
+        deviceID += digest[14:18]
+        deviceID += '-'
+        deviceID += digest[19:23]
+        deviceID += '-'
+        deviceID += digest[24:]
+
+        return deviceID
