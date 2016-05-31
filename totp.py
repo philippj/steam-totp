@@ -28,35 +28,37 @@ import hmac
 import time
 import base64
 import hashlib
-import string
+# import string
 import requests
 
 from binascii import unhexlify
 
-STEAM_CHAR_INTEGERS = [str(x) for x in range(2, 10)]
-STEAM_CHAR_LETTERS = [x for x in string.letters[1:26]]
+STEAM_CHARS = [
+    '2', '3', '4', '5', '6', '7', '8', '9', 'B',
+    'C', 'D', 'F', 'G', 'H', 'J', 'K', 'M', 'N',
+    'P', 'Q', 'R', 'T', 'V', 'W', 'X', 'Y'
+]
 
-STEAM_CHARS = STEAM_CHAR_INTEGERS + STEAM_CHAR_LETTERS
 SYNC_URL = 'https://api.steampowered.com:443/ITwoFactorService/QueryTime/v0001'
 
 
 class SteamTOTP:
-    def __init__(self, shared=False, identity=False):
+    def __init__(self, shared_secret=False, identity_secret=False):
         self.secrets = {}
 
-        if shared:
-            self.secrets['sharedSecret'] = shared
+        if shared_secret:
+            self.secrets['sharedSecret'] = shared_secret
 
-        if identity:
-            self.secrets['identitySecret'] = identity
+        if identity_secret:
+            self.secrets['identitySecret'] = identity_secret
 
-    def generateLoginToken(self, secret=False):
-        if not secret or 'identitySecret' not in self.secrets:
+    def generateLoginToken(self, shared_secret=None):
+        if not shared_secret and 'sharedSecret' not in self.secrets.keys():
             raise Exception(
-                'Could not generate login token without identitySecret'
+                'Could not generate login token without sharedSecret'
             )
 
-        secret = secret or self.secrets.get('identitySecret')
+        shared_secret = shared_secret or self.secrets.get('sharedSecret')
 
         toLong = lambda x: long(x.encode('hex'), 16)
         local = lambda: long(
@@ -66,7 +68,7 @@ class SteamTOTP:
         codeinterval = lambda: long((local() + timediff) / 30000)
 
         v = self.long_to_bytes(codeinterval())
-        h = hmac.new(base64.b64decode(secret), v, hashlib.sha1)
+        h = hmac.new(base64.b64decode(shared_secret), v, hashlib.sha1)
         digest = h.digest()
 
         start = toLong(digest[19]) & 0x0f
@@ -83,19 +85,19 @@ class SteamTOTP:
 
         return code
 
-    def generateConfirmationToken(self, time, tag, secret=False):
-        if not secret or 'sharedSecret' not in self.secrets:
+    def generateConfirmationToken(self, time, tag, identity_secret=None):
+        if not identity_secret and 'identitySecret' not in self.secrets.keys():
             raise Exception(
-                'Could not generate confirmation token without sharedSecret'
+                'Could not generate confirmation token without identitySecret'
             )
 
-        secret = secret or self.secrets.get('sharedSecret')
+        identity_secret = identity_secret or self.secrets.get('identitySecret')
         v = self.long_to_bytes(long(time))
 
         if tag:
             v += tag
 
-        h = hmac.new(base64.b64decode(secret), v, hashlib.sha1)
+        h = hmac.new(base64.b64decode(identity_secret), v, hashlib.sha1)
 
         return h.digest().encode('base64')
 
